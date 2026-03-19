@@ -2,7 +2,7 @@ const commentService = require("../services/commentService");
 
 const createComment = async (req, res) => {
   try {
-    const comment = await commentService.createComment(req.body);
+    const comment = await commentService.createComment(req.body, req.user);
 
     return res.status(201).json(comment);
   } catch (error) {

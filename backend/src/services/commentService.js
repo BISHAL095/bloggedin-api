@@ -1,11 +1,17 @@
 const prisma = require("../prisma");
 
-const createComment = async ({ content, postId, userId }) => {
+const createComment = async ({ content, postId }, user) => {
   const normalizedContent = typeof content === "string" ? content.trim() : "";
 
   if (!normalizedContent || !postId) {
     const error = new Error("content and postId are required");
     error.statusCode = 400;
+    throw error;
+  }
+
+  if (!user || !user.userId) {
+    const error = new Error("Unauthorized");
+    error.statusCode = 401;
     throw error;
   }
 
@@ -20,24 +26,22 @@ const createComment = async ({ content, postId, userId }) => {
     throw error;
   }
 
-  if (userId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
+  const existingUser = await prisma.user.findUnique({
+    where: { id: user.userId },
+    select: { id: true },
+  });
 
-    if (!user) {
-      const error = new Error("User not found");
-      error.statusCode = 404;
-      throw error;
-    }
+  if (!existingUser) {
+    const error = new Error("User not found");
+    error.statusCode = 404;
+    throw error;
   }
 
   return prisma.comment.create({
     data: {
       content: normalizedContent,
       postId,
-      userId: userId || null,
+      userId: user.userId,
     },
     select: {
       id: true,
