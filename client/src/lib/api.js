@@ -10,49 +10,57 @@ export const readJson = async (response) => {
   return data
 }
 
+const jsonRequest = (method, payload, csrfToken) => ({
+  method,
+  credentials: 'include',
+  headers: {
+    'Content-Type': 'application/json',
+    ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+  },
+  ...(payload ? { body: JSON.stringify(payload) } : {}),
+})
+
 export const fetchPublishedPosts = async () => {
-  const response = await fetch(`${API_URL}/posts`)
+  const response = await fetch(`${API_URL}/posts`, {
+    credentials: 'include',
+  })
   return readJson(response)
 }
 
 export const fetchPostDetails = async (postId) => {
-  const response = await fetch(`${API_URL}/posts/${postId}`)
+  const response = await fetch(`${API_URL}/posts/${postId}`, {
+    credentials: 'include',
+  })
+  return readJson(response)
+}
+
+export const fetchSession = async () => {
+  const response = await fetch(`${API_URL}/auth/session`, {
+    credentials: 'include',
+  })
+
   return readJson(response)
 }
 
 export const loginUser = async (payload) => {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
+  const response = await fetch(`${API_URL}/auth/login`, jsonRequest('POST', payload))
 
   return readJson(response)
 }
 
 export const registerUser = async (payload) => {
-  const response = await fetch(`${API_URL}/auth/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
+  const response = await fetch(`${API_URL}/auth/register`, jsonRequest('POST', payload))
 
   return readJson(response)
 }
 
-export const createComment = async (token, payload) => {
-  const response = await fetch(`${API_URL}/comments`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  })
+export const logoutUser = async (csrfToken) => {
+  const response = await fetch(`${API_URL}/auth/logout`, jsonRequest('POST', {}, csrfToken))
+  return readJson(response)
+}
+
+export const createComment = async (payload, csrfToken) => {
+  const response = await fetch(`${API_URL}/comments`, jsonRequest('POST', payload, csrfToken))
 
   return readJson(response)
 }

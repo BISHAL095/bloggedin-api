@@ -1,15 +1,39 @@
 const prisma = require("../prisma");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const {
+  AUTH_COOKIE_NAME,
+  buildSessionPayload,
+  generateCsrfToken,
+  getCookieOptions,
+  serializeCookie,
+  signSessionToken,
+} = require("../lib/auth");
 
-const issueToken = (user) => {
-  return jwt.sign(
-    {
-      userId: user.id,
-      role: user.role,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "1d" }
+const PASSWORD_MIN_LENGTH = 8;
+const EMAIL_MAX_LENGTH = 320;
+
+const setSessionCookie = (res, user) => {
+  const csrfToken = generateCsrfToken();
+  const token = signSessionToken(user, csrfToken);
+
+  res.setHeader(
+    "Set-Cookie",
+    serializeCookie(AUTH_COOKIE_NAME, token, {
+      ...getCookieOptions(),
+      maxAge: 60 * 60 * 24,
+    })
+  );
+
+  return buildSessionPayload(user, csrfToken);
+};
+
+const clearSessionCookie = (res) => {
+  res.setHeader(
+    "Set-Cookie",
+    serializeCookie(AUTH_COOKIE_NAME, "", {
+      ...getCookieOptions(),
+      maxAge: 0,
+    })
   );
 };
 
@@ -20,6 +44,14 @@ const registerUser = async (req, res) => {
 
     if (!normalizedEmail || !password) {
       return res.status(400).json({ error: "Email and password required" });
+    }
+
+    if (normalizedEmail.length > EMAIL_MAX_LENGTH) {
+      return res.status(400).json({ error: "Email is too long" });
+    }
+
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
 
     if (!process.env.JWT_SECRET) {
@@ -44,16 +76,11 @@ const registerUser = async (req, res) => {
       },
     });
 
-    const token = issueToken(user);
+    const session = setSessionCookie(res, user);
 
     res.status(201).json({
       message: "User created successfully",
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
+      session,
     });
 
   } catch (error) {
@@ -71,6 +98,10 @@ const logUser = async (req, res) => {
 
     if (!normalizedEmail || !password) {
       return res.status(400).json({ error: "Email and password required" });
+    }
+
+    if (normalizedEmail.length > EMAIL_MAX_LENGTH) {
+      return res.status(400).json({ error: "Email is too long" });
     }
 
     if (!process.env.JWT_SECRET) {
@@ -91,11 +122,11 @@ const logUser = async (req, res) => {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    const token = issueToken(user);
+    const session = setSessionCookie(res, user);
 
     res.json({
       message: "Login successful",
-      token,
+      session,
     });
 
   } catch (error) {
@@ -104,7 +135,38 @@ const logUser = async (req, res) => {
   }
 };
 
+const getSession = async (req, res) => {
+  if (!req.user?.userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+    },
+  });
+
+  if (!user) {
+    clearSessionCookie(res);
+    return res.status(401).json({ error: "Session user not found" });
+  }
+
+  return res.status(200).json({
+    session: buildSessionPayload(user, req.user.csrfToken),
+  });
+};
+
+const logoutUser = (req, res) => {
+  clearSessionCookie(res);
+  return res.status(200).json({ message: "Logged out successfully" });
+};
+
 module.exports = {
+  getSession,
   registerUser,
   logUser,
+  logoutUser,
 };

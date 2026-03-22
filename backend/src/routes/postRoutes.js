@@ -1,5 +1,6 @@
 const express = require("express");
-const authMiddleware = require("../middlewares/authMiddleware");
+const { authMiddleware, csrfMiddleware } = require("../middlewares/authMiddleware");
+const { createRateLimiter } = require("../middlewares/securityMiddleware");
 const {
   getPublishedPosts,
   getAllPosts,
@@ -14,8 +15,8 @@ const router = express.Router();
 router.get("/admin/all", authMiddleware, getAllPosts);
 router.get("/", getPublishedPosts);
 router.get("/:id", getPublishedPostById);
-router.post("/", authMiddleware, createPost);
-router.put("/:id", authMiddleware, updatePost);
-router.delete("/:id", authMiddleware, deletePost);
+router.post("/", authMiddleware, csrfMiddleware, createRateLimiter({ windowMs: 60 * 1000, maxRequests: 30 }), createPost);
+router.put("/:id", authMiddleware, csrfMiddleware, createRateLimiter({ windowMs: 60 * 1000, maxRequests: 30 }), updatePost);
+router.delete("/:id", authMiddleware, csrfMiddleware, createRateLimiter({ windowMs: 60 * 1000, maxRequests: 30 }), deletePost);
 
 module.exports = router;

@@ -11,10 +11,12 @@ import {
   deleteComment,
   deletePost,
   fetchAdminPosts,
+  fetchSession,
   loginAdmin,
+  logoutAdmin,
   updatePost,
 } from './lib/api'
-import { clearToken, decodeToken, getStoredToken, storeToken } from './lib/auth'
+import { isAdminSession } from './lib/auth'
 
 const emptyPostForm = {
   title: '',
@@ -50,8 +52,8 @@ const getRoute = (path) => {
 
 function App() {
   const [path, setPath] = useState(() => getCurrentPath())
-  const [token, setToken] = useState(() => getStoredToken())
-  const [session, setSession] = useState(() => decodeToken(getStoredToken()))
+  const [session, setSession] = useState(null)
+  const [csrfToken, setCsrfToken] = useState('')
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [composeForm, setComposeForm] = useState(emptyPostForm)
   const [posts, setPosts] = useState([])
@@ -61,7 +63,7 @@ function App() {
   const [busyAction, setBusyAction] = useState('')
 
   const route = getRoute(path)
-  const isAdmin = session?.role === 'ADMIN'
+  const isAdmin = isAdminSession(session)
   const activePost = route.name === 'edit-post' ? posts.find((post) => post.id === route.postId) : null
 
   const navigate = (nextPath) => {
@@ -74,8 +76,8 @@ function App() {
     setPath(nextPath)
   }
 
-  const loadPosts = async (currentToken = token) => {
-    if (!currentToken) {
+  const loadPosts = async () => {
+    if (!isAdmin) {
       setPosts([])
       setAdminStatus('Admin login required.')
       return
@@ -84,7 +86,7 @@ function App() {
     setAdminStatus('Loading posts...')
 
     try {
-      const data = await fetchAdminPosts(currentToken)
+      const data = await fetchAdminPosts()
       setPosts(data)
       setAdminStatus(data.length ? '' : 'No posts created yet.')
     } catch (error) {
@@ -104,23 +106,34 @@ function App() {
   }, [])
 
   useEffect(() => {
-    setSession(token ? decodeToken(token) : null)
-  }, [token])
+    const syncSession = async () => {
+      try {
+        const data = await fetchSession()
+        setSession(data.session)
+        setCsrfToken(data.session.csrfToken)
+      } catch {
+        setSession(null)
+        setCsrfToken('')
+      }
+    }
+
+    syncSession()
+  }, [])
 
   useEffect(() => {
-    if (token && isAdmin) {
-      loadPosts(token)
+    if (isAdmin) {
+      loadPosts()
       return
     }
 
-    if (!token) {
+    if (!session) {
       setPosts([])
       setAdminStatus('Admin login required.')
     } else {
       setPosts([])
       setAdminStatus('This account is authenticated but not an admin.')
     }
-  }, [token, isAdmin])
+  }, [session, isAdmin])
 
   useEffect(() => {
     if (route.name === 'edit-post' && activePost) {
@@ -151,8 +164,8 @@ function App() {
 
     try {
       const data = await loginAdmin(loginForm)
-      storeToken(data.token)
-      setToken(data.token)
+      setSession(data.session)
+      setCsrfToken(data.session.csrfToken)
       setLoginForm({ email: '', password: '' })
       setLoginStatus('Admin session active.')
       navigate('/posts')
@@ -163,9 +176,17 @@ function App() {
     }
   }
 
-  const handleLogout = () => {
-    clearToken()
-    setToken('')
+  const handleLogout = async () => {
+    try {
+      if (csrfToken) {
+        await logoutAdmin(csrfToken)
+      }
+    } catch {
+      // Clear local state even if the session cookie is already missing.
+    }
+
+    setSession(null)
+    setCsrfToken('')
     setPosts([])
     setEditDraft(emptyPostForm)
     setAdminStatus('Logged out.')
@@ -179,7 +200,7 @@ function App() {
     setAdminStatus('Creating post...')
 
     try {
-      await createPost(token, composeForm)
+      await createPost(composeForm, csrfToken)
       setComposeForm(emptyPostForm)
       await loadPosts()
       setAdminStatus('Post created.')
@@ -202,7 +223,7 @@ function App() {
     setAdminStatus('Saving post...')
 
     try {
-      await updatePost(token, route.postId, editDraft)
+      await updatePost(route.postId, editDraft, csrfToken)
       await loadPosts()
       setAdminStatus('Post updated.')
       navigate('/posts')
@@ -218,7 +239,7 @@ function App() {
     setAdminStatus(post.published ? 'Unpublishing post...' : 'Publishing post...')
 
     try {
-      await updatePost(token, post.id, { published: !post.published })
+      await updatePost(post.id, { published: !post.published }, csrfToken)
       await loadPosts()
       setAdminStatus('Post status updated.')
     } catch (error) {
@@ -233,7 +254,7 @@ function App() {
     setAdminStatus('Deleting post...')
 
     try {
-      await deletePost(token, postId)
+      await deletePost(postId, csrfToken)
       await loadPosts()
       setAdminStatus('Post deleted.')
 
@@ -252,7 +273,7 @@ function App() {
     setAdminStatus('Deleting comment...')
 
     try {
-      await deleteComment(token, commentId)
+      await deleteComment(commentId, csrfToken)
       await loadPosts()
       setAdminStatus('Comment deleted.')
     } catch (error) {
@@ -261,6 +282,19 @@ function App() {
       setBusyAction('')
     }
   }
+
+  const renderAdminAccessRequired = (message) => (
+    <main className="single-panel">
+      <section className="panel">
+        <p className="eyebrow">Admin access required</p>
+        <h2>{message}</h2>
+        <p className="status-line">
+          Sign in with an admin account to access this route. Non-admin sessions can authenticate but
+          cannot use the publishing dashboard.
+        </p>
+      </section>
+    </main>
+  )
 
   return (
     <div className="page-shell">
@@ -315,7 +349,7 @@ function App() {
         </main>
       ) : null}
 
-      {route.name === 'posts' ? (
+      {route.name === 'posts' && isAdmin ? (
         <main className="single-panel">
           <PostList
             busyAction={busyAction}
@@ -335,7 +369,9 @@ function App() {
         </main>
       ) : null}
 
-      {route.name === 'new-post' ? (
+      {route.name === 'posts' && !isAdmin ? renderAdminAccessRequired('The post library is restricted to admins.') : null}
+
+      {route.name === 'new-post' && isAdmin ? (
         <main className="single-panel">
           <PostComposer
             busy={busyAction === 'create'}
@@ -346,7 +382,9 @@ function App() {
         </main>
       ) : null}
 
-      {route.name === 'edit-post' ? (
+      {route.name === 'new-post' && !isAdmin ? renderAdminAccessRequired('Creating posts is restricted to admins.') : null}
+
+      {route.name === 'edit-post' && isAdmin ? (
         <main className="page-stack">
           <section className="panel">
             <div className="section-head">
@@ -401,6 +439,10 @@ function App() {
           ) : null}
         </main>
       ) : null}
+
+      {route.name === 'edit-post' && !isAdmin
+        ? renderAdminAccessRequired('Editing posts is restricted to admins.')
+        : null}
 
       {route.name === 'not-found' ? (
         <main className="single-panel">

@@ -1,10 +1,17 @@
 const prisma = require("../prisma");
+const COMMENT_MAX_LENGTH = 2000;
 
 const createComment = async ({ content, postId }, user) => {
   const normalizedContent = typeof content === "string" ? content.trim() : "";
 
   if (!normalizedContent || !postId) {
     const error = new Error("content and postId are required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (normalizedContent.length > COMMENT_MAX_LENGTH) {
+    const error = new Error("comment is too long");
     error.statusCode = 400;
     throw error;
   }

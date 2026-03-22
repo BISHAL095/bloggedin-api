@@ -1,7 +1,7 @@
-const jwt = require("jsonwebtoken");
+const { getAuthCookie, verifySessionToken } = require("../lib/auth");
 
 /**
- * Verifies JWT from Authorization header and attaches user to request
+ * Verifies a JWT from the secure auth cookie or Authorization header and attaches user to request
  */
 const authMiddleware = (req, res, next) => {
   if (!process.env.JWT_SECRET) {
@@ -9,15 +9,16 @@ const authMiddleware = (req, res, next) => {
   }
 
   const authHeader = req.headers.authorization;
+  const cookieToken = getAuthCookie(req);
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!cookieToken && (!authHeader || !authHeader.startsWith("Bearer "))) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = cookieToken || authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = verifySessionToken(token);
 
     req.user = decoded; // attach user info to request
 
@@ -27,4 +28,21 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+const csrfMiddleware = (req, res, next) => {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+    return next();
+  }
+
+  const csrfHeader = req.headers["x-csrf-token"];
+
+  if (!req.user?.csrfToken || !csrfHeader || csrfHeader !== req.user.csrfToken) {
+    return res.status(403).json({ error: "Invalid CSRF token" });
+  }
+
+  return next();
+};
+
+module.exports = {
+  authMiddleware,
+  csrfMiddleware,
+};

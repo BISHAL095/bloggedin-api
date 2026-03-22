@@ -1,4 +1,6 @@
 const prisma = require("../prisma");
+const TITLE_MAX_LENGTH = 180;
+const CONTENT_MAX_LENGTH = 20000;
 
 const postListSelect = {
   id: true,
@@ -109,6 +111,18 @@ const createPost = async ({ title, content, published }, user) => {
     throw error;
   }
 
+  if (normalizedTitle.length > TITLE_MAX_LENGTH) {
+    const error = new Error("title is too long");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (normalizedContent.length > CONTENT_MAX_LENGTH) {
+    const error = new Error("content is too long");
+    error.statusCode = 400;
+    throw error;
+  }
+
   return prisma.post.create({
     data: {
       title: normalizedTitle,
@@ -143,6 +157,12 @@ const updatePost = async (id, { title, content, published }, user) => {
       throw error;
     }
 
+    if (normalizedTitle.length > TITLE_MAX_LENGTH) {
+      const error = new Error("title is too long");
+      error.statusCode = 400;
+      throw error;
+    }
+
     data.title = normalizedTitle;
   }
 
@@ -151,6 +171,12 @@ const updatePost = async (id, { title, content, published }, user) => {
 
     if (!normalizedContent) {
       const error = new Error("content cannot be empty");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (normalizedContent.length > CONTENT_MAX_LENGTH) {
+      const error = new Error("content is too long");
       error.statusCode = 400;
       throw error;
     }

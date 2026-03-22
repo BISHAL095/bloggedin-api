@@ -17,7 +17,7 @@ BloggedIn is a full-stack blog platform in one repository with three apps:
 
 ### Admin app
 
-- Admin login with JWT
+- Admin login with secure cookie sessions
 - View all posts, including drafts
 - Create posts
 - Edit title, content, and published status
@@ -28,10 +28,11 @@ BloggedIn is a full-stack blog platform in one repository with three apps:
 ### Backend
 
 - Prisma models for `User`, `Post`, and `Comment`
-- JWT auth with `Authorization: Bearer <token>`
+- JWT-backed `HttpOnly` cookie sessions with CSRF protection
 - Admin-only protected post routes
 - Logged-in user comment creation
 - Admin-only comment moderation
+- Basic rate limiting, security headers, and input length validation
 
 ## Project structure
 
@@ -63,6 +64,9 @@ DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/bloggedin?schema=public"
 JWT_SECRET="replace-with-a-long-random-secret"
 PORT=3000
 FRONTEND_URLS="http://localhost:5173,http://localhost:5174"
+NODE_ENV="development"
+# Set in production when you want the cookie available on a parent domain
+# COOKIE_DOMAIN=".your-domain.com"
 ```
 
 Install and run:
@@ -131,6 +135,8 @@ http://localhost:5174
 
 - `POST /auth/register`
 - `POST /auth/login`
+- `GET /auth/session`
+- `POST /auth/logout`
 
 ### Authenticated users
 
@@ -176,7 +182,7 @@ Headers:
 
 ```text
 Content-Type: application/json
-Authorization: Bearer <admin-token>
+X-CSRF-Token: <csrf-token-from-login-or-session>
 ```
 
 Body:
@@ -207,7 +213,7 @@ Headers:
 
 ```text
 Content-Type: application/json
-Authorization: Bearer <user-token>
+X-CSRF-Token: <csrf-token-from-login-or-session>
 ```
 
 Body:
@@ -226,8 +232,16 @@ Body:
 Header:
 
 ```text
-Authorization: Bearer <admin-token>
+X-CSRF-Token: <csrf-token-from-login-or-session>
 ```
+
+### Session-based auth flow
+
+- `POST /auth/login` and `POST /auth/register` set an `HttpOnly` session cookie
+- `GET /auth/session` returns the active session payload and the CSRF token
+- Frontends send `credentials: 'include'` on all requests
+- Mutating requests send `X-CSRF-Token`
+- `POST /auth/logout` clears the session cookie
 
 ## Promoting a user to admin
 
@@ -264,6 +278,8 @@ Environment variables:
 - `JWT_SECRET`
 - `PORT`
 - `FRONTEND_URLS`
+- `NODE_ENV=production`
+- `COOKIE_DOMAIN` when you need cross-subdomain cookies
 
 If your provider supports a post-deploy command:
 
@@ -293,6 +309,8 @@ Environment variable:
 VITE_API_URL="https://your-api-domain.com"
 ```
 
+`client/vercel.json` already rewrites nested routes to `index.html`.
+
 ### Admin frontend on Vercel
 
 Set root directory to `admin-client/`.
@@ -315,6 +333,8 @@ Environment variable:
 VITE_API_URL="https://your-api-domain.com"
 ```
 
+`admin-client/vercel.json` already rewrites nested routes to `index.html`.
+
 ### Deploy order
 
 1. Deploy the backend
@@ -329,4 +349,4 @@ VITE_API_URL="https://your-api-domain.com"
 - Only admins can create, edit, publish, unpublish, and delete posts
 - Only logged-in users can create comments
 - Only admins can delete comments
-- JWTs are stored in local storage in both frontends for a simple demo flow
+- Production deployments should use HTTPS so secure cookies with `SameSite=None` can be sent

@@ -5,8 +5,11 @@ function CommentForm({ disabled, onSubmit, session }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    await onSubmit(content)
-    setContent('')
+    const wasSubmitted = await onSubmit(content)
+
+    if (wasSubmitted) {
+      setContent('')
+    }
   }
 
   if (!session) {

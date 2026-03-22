@@ -6,12 +6,14 @@ import PostDetails from './components/PostDetails'
 import PostList from './components/PostList'
 import {
   createComment,
+  fetchSession,
   fetchPostDetails,
   fetchPublishedPosts,
   loginUser,
+  logoutUser,
   registerUser,
 } from './lib/api'
-import { clearToken, decodeToken, getStoredToken, storeToken } from './lib/auth'
+import { hasSession } from './lib/auth'
 
 const getCurrentPath = () => window.location.pathname || '/'
 
@@ -39,8 +41,8 @@ function App() {
   const [path, setPath] = useState(() => getCurrentPath())
   const [posts, setPosts] = useState([])
   const [selectedPost, setSelectedPost] = useState(null)
-  const [token, setToken] = useState(() => getStoredToken())
-  const [session, setSession] = useState(() => decodeToken(getStoredToken()))
+  const [session, setSession] = useState(null)
+  const [csrfToken, setCsrfToken] = useState('')
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [listStatus, setListStatus] = useState('Loading published posts...')
@@ -97,6 +99,21 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const syncSession = async () => {
+      try {
+        const data = await fetchSession()
+        setSession(data.session)
+        setCsrfToken(data.session.csrfToken)
+      } catch {
+        setSession(null)
+        setCsrfToken('')
+      }
+    }
+
+    syncSession()
+  }, [])
+
+  useEffect(() => {
     const handlePopstate = () => {
       setPath(getCurrentPath())
     }
@@ -105,10 +122,6 @@ function App() {
 
     return () => window.removeEventListener('popstate', handlePopstate)
   }, [])
-
-  useEffect(() => {
-    setSession(token ? decodeToken(token) : null)
-  }, [token])
 
   useEffect(() => {
     if (route.name === 'post') {
@@ -131,8 +144,8 @@ function App() {
 
     try {
       const data = authMode === 'login' ? await loginUser(authForm) : await registerUser(authForm)
-      storeToken(data.token)
-      setToken(data.token)
+      setSession(data.session)
+      setCsrfToken(data.session.csrfToken)
       setAuthForm({ email: '', password: '' })
       setAuthStatus(authMode === 'login' ? 'Logged in successfully.' : 'Account created and logged in.')
       navigate('/')
@@ -143,27 +156,36 @@ function App() {
     }
   }
 
-  const handleLogout = () => {
-    clearToken()
-    setToken('')
+  const handleLogout = async () => {
+    try {
+      if (csrfToken) {
+        await logoutUser(csrfToken)
+      }
+    } catch {
+      // Clear local session state even if the cookie is already gone.
+    }
+
     setSession(null)
+    setCsrfToken('')
     setAuthStatus('Logged out.')
   }
 
   const handleCommentSubmit = async (content) => {
     if (route.name !== 'post') {
-      return
+      return false
     }
 
     setBusyAction('comment')
     setDetailStatus('Posting comment...')
 
     try {
-      await createComment(token, { content, postId: route.postId })
+      await createComment({ content, postId: route.postId }, csrfToken)
       await Promise.all([loadPosts(), loadPostDetails(route.postId)])
       setDetailStatus('Comment posted.')
+      return true
     } catch (error) {
       setDetailStatus(error.message)
+      return false
     } finally {
       setBusyAction('')
     }
@@ -211,7 +233,7 @@ function App() {
             <p className="hero-text">
               Open any story on its own page to read the full post and join the discussion.
             </p>
-            {session ? (
+            {hasSession(session) ? (
               <p className="status-line">Signed in as {session.role}. You can comment on published posts.</p>
             ) : (
               <p className="status-line">Sign in from the account page if you want to comment.</p>
