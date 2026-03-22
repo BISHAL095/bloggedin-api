@@ -9,12 +9,6 @@ function AdminHero() {
           and every action routes through the JWT-protected API.
         </p>
       </div>
-      <div className="hero-metrics">
-        <span>Control room</span>
-        <strong>Drafts</strong>
-        <strong>Publishing</strong>
-        <strong>Comment moderation</strong>
-      </div>
     </section>
   )
 }

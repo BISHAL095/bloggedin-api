@@ -13,20 +13,10 @@
 }
 
 .hero-banner {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
-  gap: 24px;
   padding: 32px;
   margin-bottom: 24px;
 }
 
-.hero-stat {
-  padding: 24px;
-  border-radius: 24px;
-  background: linear-gradient(160deg, rgba(7, 102, 93, 0.12), rgba(255, 214, 165, 0.3));
-}
-
-.hero-stat span,
 .eyebrow,
 .meta-row {
   text-transform: uppercase;
@@ -198,7 +188,6 @@ button:disabled {
     padding: 16px;
   }
 
-  .hero-banner,
   .content-grid {
     grid-template-columns: 1fr;
   }
