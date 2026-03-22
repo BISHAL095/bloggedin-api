@@ -1,0 +1,50 @@
+:root {
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1a2028;
+  background:
+    radial-gradient(circle at top left, rgba(255, 198, 153, 0.75), transparent 28%),
+    radial-gradient(circle at top right, rgba(119, 194, 182, 0.26), transparent 22%),
+    linear-gradient(180deg, #fff9f1 0%, #f4f6fb 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Fraunces", Georgia, serif;
+  line-height: 1.05;
+}
+
+h1 {
+  font-size: clamp(2.7rem, 5vw, 4.7rem);
+  margin-bottom: 16px;
+}
+
+h2 {
+  font-size: clamp(1.9rem, 3vw, 2.6rem);
+}
+
+h3 {
+  font-size: 1.28rem;
+}

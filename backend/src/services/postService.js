@@ -62,6 +62,15 @@ const getPublishedPosts = async () => {
   });
 };
 
+const getAllPosts = async (user) => {
+  ensureAdmin(user);
+
+  return prisma.post.findMany({
+    orderBy: { createdAt: "desc" },
+    select: postDetailSelect,
+  });
+};
+
 const getPublishedPostById = async (id) => {
   return prisma.post.findFirst({
     where: {
@@ -189,6 +198,7 @@ const deletePost = async (id, user) => {
 
 module.exports = {
   getPublishedPosts,
+  getAllPosts,
   getPublishedPostById,
   createPost,
   updatePost,

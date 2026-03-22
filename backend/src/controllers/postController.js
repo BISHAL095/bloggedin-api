@@ -27,6 +27,21 @@ const getPublishedPostById = async (req, res) => {
   }
 };
 
+const getAllPosts = async (req, res) => {
+  try {
+    const posts = await postService.getAllPosts(req.user);
+
+    return res.status(200).json(posts);
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+
+    console.error("Failed to fetch admin posts:", error);
+    return res.status(500).json({ error: "Failed to fetch posts" });
+  }
+};
+
 const createPost = async (req, res) => {
   try {
     const post = await postService.createPost(req.body, req.user);
@@ -76,6 +91,7 @@ const deletePost = async (req, res) => {
 
 module.exports = {
   getPublishedPosts,
+  getAllPosts,
   getPublishedPostById,
   createPost,
   updatePost,

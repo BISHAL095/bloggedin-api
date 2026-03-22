@@ -59,6 +59,30 @@ const createComment = async ({ content, postId }, user) => {
   });
 };
 
+const deleteComment = async (id, user) => {
+  if (!user || user.role !== "ADMIN") {
+    const error = new Error("Forbidden");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const comment = await prisma.comment.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  if (!comment) {
+    const error = new Error("Comment not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await prisma.comment.delete({
+    where: { id },
+  });
+};
+
 module.exports = {
   createComment,
+  deleteComment,
 };
