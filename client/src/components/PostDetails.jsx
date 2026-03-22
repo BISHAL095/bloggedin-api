@@ -13,7 +13,7 @@ function PostDetails({ busy, onCommentSubmit, post, session, status }) {
       {status ? <p className="status-line">{status}</p> : null}
 
       {!post ? (
-        <p className="status-line">Choose a published post from the left to read comments and respond.</p>
+        <p className="status-line">Choose a published post to read comments and respond.</p>
       ) : (
         <>
           <article className="detail-card">

@@ -3,6 +3,13 @@
   padding: 28px;
 }
 
+.page-shell,
+.page-stack,
+.single-panel {
+  display: grid;
+  gap: 24px;
+}
+
 .hero-banner,
 .panel {
   border: 1px solid rgba(21, 35, 55, 0.12);
@@ -28,10 +35,16 @@
   max-width: 62ch;
 }
 
-.layout-grid {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.78fr) minmax(0, 1.22fr);
-  gap: 24px;
+.route-bar,
+.route-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.route-actions {
+  flex-wrap: wrap;
 }
 
 .sidebar-stack,
@@ -136,6 +149,11 @@ button:disabled {
   border: 1px solid rgba(21, 35, 55, 0.12);
 }
 
+.active-chip {
+  background: #18334a;
+  color: #fff;
+}
+
 .danger-button {
   background: #ffe0da;
   color: #8c2618;
@@ -172,10 +190,8 @@ button:disabled {
     padding: 16px;
   }
 
-  .layout-grid {
-    grid-template-columns: 1fr;
-  }
-
+  .route-bar,
+  .route-actions,
   .section-head,
   .compact-head,
   .meta-row,
